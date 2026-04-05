@@ -1,0 +1,60 @@
+name: Deploy to ECS
+
+on:
+    push:
+        branches:
+            - main
+
+
+env:
+    AWS_REGION: us-east-1
+    ECR_REPOSITORY: flask-app
+    ECS_CLUSTER: flask-app-cluster
+    ECS_SERVICE: flask-app-service
+    CONTAINER_NAME: flask-app
+
+jobs:
+    deploy:
+        name: Deploy
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v3
+            
+            - name: Configure AWS Credentials
+              uses: aws-actions/configure-aws-credentials@v2
+              with:
+                aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                aws-region: ${{ env.AWS_REGION }}
+            
+            - name: Login to Amazon ECR
+              id: login-ecr
+              uses: aws-action/amazon-ecr-login@v1
+            
+            - name: Build Docker image
+              run: |
+                docker build -t $ECR_REPOSITORY ./app
+
+            - name: Push image to ECR
+              id: push-image
+              env:
+                ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+              run: |
+                IMAGE_TAG=${{ github.sha }}
+                docker tag $ECR_REPOSITORY:latest $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+                docker tag $ECR_REPOSITORY:latest $ECR_REGISTRY/$ECR_REPOSITORY:latest
+                docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+                docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+                echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+            - name: Deploy to ECS
+              run: |
+                aws ecs update-service \
+                    --cluster $ECS_CLUSTER \
+                    --service $ECS_SERVICE \
+                    --force-new-deployment \
+                    --region $AWS_REGION
+                    
+
