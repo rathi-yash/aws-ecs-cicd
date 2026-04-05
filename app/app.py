@@ -3,7 +3,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return "<h1>Hello form ECS! Deployed via Github Actions + Terraform</h1>"
+    return "<h1>Hello from ECS! Deployed via GitHub Actions + Terraform 🚀</h1>"
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
