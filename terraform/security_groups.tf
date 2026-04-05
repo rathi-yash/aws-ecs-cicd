@@ -27,7 +27,7 @@ resource "aws_security_group" "alb" {
 resource "aws_security_group" "ecs" {
     name = "${var.app_name}-ecs-sg"
     description = "Security group for ECS tasks"
-    vpc_id = aws_vpn.main.id
+    vpc_id = aws_vpc.main.id
 
     # Only Allow traffic from ALB on port 5000
     ingress {

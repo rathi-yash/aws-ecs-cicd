@@ -14,12 +14,12 @@ resource "aws_ecs_task_definition" "app" {
     memory = 512
     execution_role_arn = aws_iam_role.ecs_task_execution.arn
 
-    container_definitions = jsonencode({
+    container_definitions = jsonencode([{
         name = var.app_name
         image = "${aws_ecr_repository.app.repository_url}:latest"
         portMappings = [
             {
-                contacinerPort = var.container_port
+                containerPort = var.container_port
                 protocol = "tcp"
             }
         ]
@@ -31,7 +31,7 @@ resource "aws_ecs_task_definition" "app" {
                 "awslogs-stream-prefix" = "ecs"
             }
         }
-    })
+    }])
 }
 
 # Service
