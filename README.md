@@ -5,35 +5,67 @@ Automated deployment of a containerized Flask app on AWS ECS Fargate using Terra
 ## Architecture
 
 ```
-GitHub Push
-    ↓
-GitHub Actions
-    ↓ builds & pushes image
-ECR (Container Registry)
-    ↓ pulls image
-ECS Fargate (runs container)
-    ↓
-ALB (Application Load Balancer)
-    ↓
-Users
+┌─────────────────────────────────────────────────────┐
+│                      CI / CD                        │
+│                                                     │
+│   Push to GitHub (main)                             │
+│          │                                          │
+│          ▼                                          │
+│   GitHub Actions (workflow triggers)                │
+│          │                                          │
+│          ▼                                          │
+│   Build Docker image                                │
+│          │                                          │
+│          ▼                                          │
+│   Push to ECR  ◄── tagged with commit SHA           │
+│          │                                          │
+└──────────┼──────────────────────────────────────────┘
+           │
+┌──────────┼──────────────────────────────────────────┐
+│          │   AWS — VPC (10.0.0.0/16)                │
+│          │   us-east-1a + us-east-1b                │
+│          ▼                                          │
+│   ┌─────────────────┐      ┌──────────────────┐     │
+│   │  ALB            │      │  IAM Role        │     │
+│   │  port 80        │      │  ECS execution   │     │ 
+│   └────────┬────────┘      └──────────────────┘     │
+│            │                                        │
+│            ▼                                        │
+│   ┌─────────────────┐      ┌──────────────────┐     │
+│   │  ECS Fargate    │◄─────│  ECR             │     │
+│   │  0.25vCPU/512MB │pulls │  Docker image    │     │
+│   └────────┬────────┘      └──────────────────┘     │
+│            │                                        │
+│            ▼                                        │
+│   ┌─────────────────┐                               │
+│   │  Security groups│                               │
+│   │  ALB:0.0.0.0/0  │                               │
+│   │  ECS: ALB only  │                               │
+│   └────────┬────────┘                               │
+│            │                                        │
+│            ▼                                        │
+│   ┌─────────────────┐                               │
+│   │  CloudWatch     │                               │
+│   │  Logs (7 days)  │                               │
+│   └─────────────────┘                               │
+└─────────────────────────────────────────────────────┘
 ```
 
 All infrastructure is provisioned as code using Terraform.
 
 ## AWS Services Used
 
-* **VPC** — isolated network with public subnets across 2 availability zones
-* **ECS Fargate** — serverless container execution (no EC2 management)
-* **ECR** — private Docker image registry
-* **ALB** — public-facing load balancer with health checks
-* **IAM** — least-privilege execution role for ECS tasks
-* **CloudWatch** — container log storage and monitoring
-* **Security Groups** — firewall rules isolating ALB and ECS traffic
+- **VPC** — isolated network with public subnets across 2 availability zones
+- **ECS Fargate** — serverless container execution (no EC2 management)
+- **ECR** — private Docker image registry
+- **ALB** — public-facing load balancer with health checks
+- **IAM** — least-privilege execution role for ECS tasks
+- **CloudWatch** — container log storage and monitoring
+- **Security Groups** — firewall rules isolating ALB and ECS traffic
 
 ## CI/CD Flow
 
 On every push to `main`:
-
 1. GitHub Actions builds a Docker image from `app/`
 2. Image is tagged with the commit SHA and pushed to ECR
 3. ECS service is force-redeployed with the new image
@@ -65,17 +97,15 @@ aws-ecs-cicd/
 ## Setup
 
 ### Prerequisites
-
-* AWS CLI configured (`aws configure`)
-* Terraform v1.0+
-* Docker
-* GitHub repository with Actions enabled
+- AWS CLI configured (`aws configure`)
+- Terraform v1.0+
+- Docker
+- GitHub repository with Actions enabled
 
 ### GitHub Secrets Required
-
-| Secret                    | Description         |
-| ------------------------- | ------------------- |
-| `AWS_ACCESS_KEY_ID`     | IAM user access key |
+| Secret | Description |
+|--------|-------------|
+| `AWS_ACCESS_KEY_ID` | IAM user access key |
 | `AWS_SECRET_ACCESS_KEY` | IAM user secret key |
 
 ### Deploy Infrastructure
